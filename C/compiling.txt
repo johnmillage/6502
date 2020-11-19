@@ -1,0 +1,11 @@
+--compile assembly file
+.\WDC02AS.exe -O ..\..\Demo\ASM\interupts.obj ..\..\Demo\ASM\interupts.asm
+
+--link assembly object
+.\WDCLN.exe -O ..\..\Demo\ASM\interupts.bin -C8000,0000 -Astartup=,7ffa -HB ..\..\Demo\ASM\interupts.obj
+
+--compile startup.asm
+.\WDC02AS.exe -DUSING_02 -O ..\..\Demo\ASM\STARTUP.obj ..\..\Demo\ASM\STARTUP.asm
+
+--compile c file
+./WDC02CC.exe -DUSING_02  ..\..\Demo\C\test.c
