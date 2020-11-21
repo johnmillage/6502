@@ -27,6 +27,38 @@
 #define LCD_RS    0x20  // register Select
 #define LCD_BUSY  0x08  // busy flag
 
+#define NES_A     0x80
+#define NES_B     0x40
+#define NES_SEL   0x20
+#define NES_ST    0x10
+#define NES_UP    0x08
+#define NES_DOWN  0x04
+#define NES_LEFT  0x02
+#define NES_RIGHT 0x01
+
+ // player sprites
+#define P1_STAND 0x00
+#define P1_SQUAT 0x01
+#define P1_PUNCH 0x02
+#define P1_KICK  0x03
+#define P2_STAND 0x04
+#define P2_SQUAT 0x05
+#define P2_PUNCH 0x06
+#define P2_KICK  0x07
+
+// game states
+#define GAME_START 0x01
+#define GAME_RD1   0x02
+#define GAME_RD2   0x03
+#define GAME_RD3   0x04
+#define GAME_RD1F  0x05
+#define GAME_RD2F  0x06
+#define GAME_RD3F  0x07
+#define GAME_END   0x08
+
+#define LEFT_MOST  0x40
+#define RIGHT_MOST 0x4f
+
 #define RAM_START 0x1000 
 #define COUNTER   0x1000 // 2 byte counter
 #define SHIFT     0x1002 // 1 byte shift counter
@@ -44,6 +76,17 @@
 #define TM1HIGH   0x111d  //high byte of time 1 value
 #define TM2VAL    0x111e  //2 bytes (int) - timer 2 value
 #define TM2HIGH   0x111f  //high byte of time 2 value
+#define PLAY1POS  0x1120  //player 1 position, 1 byte
+#define PLAY2POS  0x1121  //player 2 position, 1 byte
+#define PLAY1LF   0x1122  //player 1 life, 1 byte
+#define PLAY2LF   0x1123  //player 2 life, byte
+#define STAGE_CT  0x1124  //state transition counter, 1 byte
+#define STAGE     0x1125  //current state, 1 byte
+#define CTRL1     0x1126  //controller 1 state, 1 byte
+#define CTRL2     0x1127  //controller 2 state, 1 byte
+#define PLAY1JP   0x1128  //player 1 jumping, 1 byte
+#define PLAY2JP   0x1129  //player 2 jumping, 1 byte
+
 
 void set_timer_1(unsigned int tm) {
     *(unsigned int*)TM1VAL = tm;
@@ -333,6 +376,179 @@ void load_custom_characters() {
     lcd_print_char_async(0x02);
 }
 
+void get_controllers() {
+    unsigned char nes_current1;
+    unsigned char nes_current2;
+    unsigned char nes_read;
+    unsigned char idx;
+    *(unsigned char*)PORTB = 0x08; //NES set latch high
+    *(unsigned char*)TIMER1 = 0x00;
+    {asm nop;}  //give latch some time
+    {asm nop;}
+    {asm nop;}
+    *(unsigned char*)PORTB = 0x00; //NES set latch low
+
+    //now read first bits
+    nes_read = *(unsigned char*)PORTB;
+    
+    if (nes_read&0x01) {
+        nes_current1 = nes_current1<<1;
+        
+    } else {
+        nes_current1 = nes_current1<<1;
+        ++nes_current1;
+    }
+    nes_read = nes_read>>1;
+    
+    if(nes_read&0x01) {
+        nes_current2 = nes_current2<<1;
+    } else {
+        nes_current2 = nes_current2<<1;
+        ++nes_current2;
+    }
+    //pulse the clock
+    *(unsigned char*)PORTB = 0x04; //NES set clock high
+    {asm nop;}
+    {asm nop;}
+    {asm nop;}
+    *(unsigned char*)PORTB = 0x00; //NES set clock low
+
+    for(idx = 0x00; idx < 0x07;++idx){
+        nes_read = *(unsigned char*)PORTB;
+        
+        if (nes_read&0x01) {
+            nes_current1 = nes_current1<<1;
+        } else {
+            nes_current1 = nes_current1<<1;
+            ++nes_current1;
+        }
+        nes_read = nes_read>>1;
+        
+        if(nes_read&0x01) {
+            nes_current2 = nes_current2<<1;
+        } else {
+            nes_current2 = nes_current2<<1;
+            ++nes_current2;
+        }
+        //pulse the clock again
+        *(unsigned char*)PORTB = 0x04; //NES set clock high
+        {asm nop;}
+        {asm nop;}
+        {asm nop;}
+        *(unsigned char*)PORTB = 0x00; //NES set clock low
+    }
+    *(unsigned char*)CTRL1 = nes_current1;
+    *(unsigned char*)CTRL2 = nes_current2;
+}
+
+void switch_to_round(unsigned char rd) {
+    *(unsigned char*)PLAY1POS = LEFT_MOST;
+    *(unsigned char*)PLAY2POS = RIGHT_MOST;
+    *(unsigned char*)PLAY1LF = 0x64;
+    *(unsigned char*)PLAY2LF = 0x64;
+    lcd_send_instruction_async(0x01, 0x00);  //clear the screen
+    lcd_send_instruction_async(0x02, 0);  //set display to home
+    print_string("    ROUND ");
+    lcd_print_char_async('0' + rd);
+    print_string("     ");
+    *(unsigned char*)STAGE_CT = 0x28;
+}
+
+void check_fight_over() {
+    if (*(unsigned char*)PLAY1LF == 0x00 || *(unsigned char*)PLAY2LF == 0x00) {
+        if (*(unsigned int*)STAGE == GAME_RD1F) {
+            *(unsigned int*)STAGE = GAME_RD2;
+            switch_to_round(0x02);
+        }
+        else if(*(unsigned int*)STAGE == GAME_RD2F) {
+            *(unsigned int*)STAGE = GAME_RD3;
+            switch_to_round(0x03);
+        }
+        else {
+            *(unsigned int*)STAGE = GAME_START;
+            print_string("      START     ");
+        }
+    }
+    
+}
+
+void draw_scene() {
+    unsigned char p1_sprite = P1_STAND;
+    unsigned char p2_sprite = P2_STAND;
+    unsigned char ctrl1 = *(unsigned char*)CTRL1;
+    unsigned char ctrl2 = *(unsigned char*)CTRL2;
+    lcd_send_instruction_async(0x01, 0x00);  //clear the screen
+    if (*(unsigned char*)PLAY1JP == 0x00) {
+       
+        if (ctrl1&NES_UP) {
+            *(unsigned char*)PLAY1POS = *(unsigned char*)PLAY1POS - 0x40;
+            *(unsigned char*)PLAY1JP = 0x0a;
+        } 
+        else {
+            if(ctrl1&NES_LEFT) {
+                if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
+                    --(*(unsigned char*)PLAY1POS);
+                }
+            }
+            if(ctrl1&NES_RIGHT) {
+                if (*(unsigned char*)PLAY1POS != RIGHT_MOST) {
+                    ++(*(unsigned char*)PLAY1POS);
+                }
+            }
+
+            if(ctrl1&NES_A) {
+                p1_sprite = P1_PUNCH;
+            } else if (ctrl1&NES_B) {
+                p1_sprite = P1_KICK;
+            }
+        }
+
+    }
+    else {
+        --(*(unsigned char*)PLAY1JP);
+        if (*(unsigned char*)PLAY1JP == 0x00) {
+            *(unsigned char*)PLAY1POS = *(unsigned char*)PLAY1POS + 0x40;
+        }
+    }
+
+    if (*(unsigned char*)PLAY2JP == 0x00) {
+       
+        if (ctrl2&NES_UP) {
+            *(unsigned char*)PLAY2POS = *(unsigned char*)PLAY2POS - 0x40;
+            *(unsigned char*)PLAY2JP = 0x0a;
+        } 
+        else {
+             if(ctrl2&NES_LEFT) {
+                if (*(unsigned char*)PLAY2POS != LEFT_MOST) {
+                    --(*(unsigned char*)PLAY2POS);
+                }
+            }
+            if(ctrl2&NES_RIGHT) {
+                if (*(unsigned char*)PLAY2POS != RIGHT_MOST) {
+                    ++(*(unsigned char*)PLAY2POS);
+                }
+            }
+            if(ctrl2&NES_A) {
+                p2_sprite = P2_PUNCH;
+            } else if (ctrl2&NES_B) {
+                p2_sprite = P2_KICK;
+            }
+        }
+    } else {
+        --(*(unsigned char*)PLAY2JP);
+        if (*(unsigned char*)PLAY2JP == 0x00) {
+            *(unsigned char*)PLAY2POS = *(unsigned char*)PLAY2POS + 0x40;
+        }
+    }
+
+    lcd_send_instruction_async(0x80|*(unsigned char*)PLAY1POS, 0x00);
+    lcd_print_char_async(p1_sprite);
+    lcd_send_instruction_async(0x80|*(unsigned char*)PLAY2POS, 0x00);
+    lcd_print_char_async(p2_sprite);
+}
+
+
+
 void main() {
     unsigned char last_shift;
     unsigned char last_counter;
@@ -342,17 +558,23 @@ void main() {
     *(unsigned char*)PCRG = 0x00;  //set CA's to active edge low
     
     *(unsigned char*)ACRG = 0x0c; //set shift in ACRG
-    *(char*)DDRA = 0xef;  //set PORTA output - except last pin of first nibble
-    *(char*)DDRB = 0x0c;  //set PORTB output on last 2 pins of first nibble, others input
+    *(unsigned char*)DDRA = 0xef;  //set PORTA output - except last pin of first nibble
+    *(unsigned char*)DDRB = 0x0c;  //set PORTB output on last 2 pins of first nibble, others input
     *(unsigned char*)SHIFT = 0x00;
     *(unsigned char*)KEYCODE = 0x00;
-    *(unsigned int*)COUNTER = 0;
+    *(unsigned char*)COUNTER = 0;
+    *(unsigned char*)TIMER1 = 0x00;
+    *(unsigned char*)TIMER2 = 0x00;
+    *(unsigned char*)CTRL1 = 0x00;
+    *(unsigned char*)CTRL2 = 0x00;
+    *(unsigned char*)PLAY1JP = 0x00;
+    *(unsigned char*)PLAY2JP = 0x00;
     last_counter = 0;
     last_shift = 0x00;
     nes_controller1 = 0x00;
     nes_controller2 = 0x00;
-    *(unsigned int*)QUESTART = 0x00;
-    *(unsigned int*)QUEEND = 0x00;
+    *(unsigned char*)QUESTART = 0x00;
+    *(unsigned char*)QUEEND = 0x00;
 
     lcd_send_instruction_async(0x20, 0x01);  //set 4 bit mode
     lcd_send_instruction_async(0x28, 0x00);  //set 4 bit mode, 2 lines
@@ -360,122 +582,48 @@ void main() {
     lcd_send_instruction_async(0x0c, 0x00);  // turn on display
     
     lcd_send_instruction_async(0x06, 0x00);  //increment and shift cursor
-    
+
+    lcd_send_instruction_async(0x02, 0);  //set display to home
+    *(unsigned char*)STAGE = GAME_START;
+    *(unsigned char*)STAGE_CT = 0x28;
+    print_string("      START     ");
 
     //flush all the sends
     while(check_lcd_send()) {}
-    lcd_send_instruction_async(0x02, 0);  //set display to home
-    lcd_print_char_async(0x00);
-    lcd_print_char_async(0x01);
-    lcd_print_char_async(0x02);
-    lcd_print_char_async(0x03);
-    lcd_print_char_async(0x04);
-    lcd_print_char_async(0x05);
-    lcd_print_char_async(0x06);
-    lcd_print_char_async(0x07);
 
 
     //done with startup
-    set_timer_1(0x411b);  //60Hz, 16.67ms
+    set_timer_2(0xffff);  //50ms
     while(1) {
         //see if we can drain the lcd stack
         check_lcd_send();
-        if(*(unsigned char*)SHIFT != last_shift) {
-            lcd_send_instruction_async(0x02, 0);  //set display to home
-            print_string("SHIFT ");
-            lcd_print_char_async('0' + *(unsigned char*)SHIFT);
-            lcd_print_char_async(' ');
-            print_byte(*(unsigned char*)SHRG);
-            if(*(unsigned char*)SHIFT >= 0x08) {
-                *(unsigned char*)SHIFT = 0x00;
-            }
-            last_shift = *(unsigned char*)SHIFT;
-
-        }
-        if(*(unsigned char*)COUNTER != last_counter) {
-            lcd_send_instruction_async(0xc0, 0);  //set to second line
-            print_string("COUNTER ");
-            print_byte(*(unsigned char*)COUNTER);
-        }
-        if(*(unsigned char*)TIMER1){
-            unsigned char nes_current1;
-            unsigned char nes_current2;
-            unsigned char nes_read;
-            unsigned char idx;
-            *(unsigned char*)PORTB = 0x08; //NES set latch high
-            *(unsigned char*)TIMER1 = 0x00;
-            {asm nop;}  //give latch some time
-            {asm nop;}
-            {asm nop;}
-            *(unsigned char*)PORTB = 0x00; //NES set latch low
-
-            //now read first bits
-            nes_read = *(unsigned char*)PORTB;
-            
-            if (nes_read&0x01) {
-                nes_current1 = nes_current1<<1;
-                
-            } else {
-                nes_current1 = nes_current1<<1;
-                ++nes_current1;
-            }
-            nes_read = nes_read>>1;
-            
-            if(nes_read&0x01) {
-                nes_current2 = nes_current2<<1;
-            } else {
-                nes_current2 = nes_current2<<1;
-                ++nes_current2;
-            }
-            //pulse the clock
-            *(unsigned char*)PORTB = 0x04; //NES set clock high
-            {asm nop;}
-            {asm nop;}
-            {asm nop;}
-            *(unsigned char*)PORTB = 0x00; //NES set clock low
-
-            for(idx = 0x00; idx < 0x07;++idx){
-                nes_read = *(unsigned char*)PORTB;
-                
-                if (nes_read&0x01) {
-                    nes_current1 = nes_current1<<1;
-                } else {
-                    nes_current1 = nes_current1<<1;
-                    ++nes_current1;
-                }
-                nes_read = nes_read>>1;
-                
-                if(nes_read&0x01) {
-                    nes_current2 = nes_current2<<1;
-                } else {
-                    nes_current2 = nes_current2<<1;
-                    ++nes_current2;
-                }
-                //pulse the clock again
-                *(unsigned char*)PORTB = 0x04; //NES set clock high
-                {asm nop;}
-                {asm nop;}
-                {asm nop;}
-                *(unsigned char*)PORTB = 0x00; //NES set clock low
-            }
-            if (nes_current1 != nes_controller1) {
-                lcd_send_instruction_async(0x02, 0);  //set display to home
-                print_string("CTRL 1 ");
-                print_nes(nes_current1);
-                nes_controller1 = nes_current1;
-            }
-            if (nes_current2 != nes_controller2) {
-                lcd_send_instruction_async(0xc0, 0);  //set to second line
-                print_string("CTRL 2 ");
-                print_nes(nes_current2);
-                nes_controller2 = nes_current2;
-            }
-            set_timer_1(0x411b);
-        }
         if(*(unsigned char*)TIMER2){
-            *(unsigned char*)PORTB = 0x00;
+            if (*(unsigned char*)STAGE == GAME_START || 
+            *(unsigned char*)STAGE == GAME_RD1 ||
+            *(unsigned char*)STAGE == GAME_RD2 ||
+            *(unsigned char*)STAGE == GAME_RD3 ) {
+                --(*(unsigned char*)STAGE_CT);
+                  // going from start of state
+                if (*(unsigned char*)STAGE_CT == 0x00) {
+                    if (*(unsigned char*)STAGE == GAME_START) {
+                        *(unsigned char*)STAGE = GAME_RD1;
+                        switch_to_round(0x01);
+                    } else if (*(unsigned char*)STAGE == GAME_RD1) {
+                        *(unsigned char*)STAGE = GAME_RD1F;
+                    } else if (*(unsigned char*)STAGE == GAME_RD2) {
+                        *(unsigned char*)STAGE = GAME_RD2F;
+                    } else if (*(unsigned char*)STAGE == GAME_RD3) {
+                        *(unsigned char*)STAGE = GAME_RD3F;
+                    }
+
+                }
+            } else {
+                get_controllers();
+                check_fight_over();
+                draw_scene();
+            }
+            set_timer_2(0xffff);
             *(unsigned char*)TIMER2 = 0x00;
-            set_timer_1(0x411b);
         }
         
     }
