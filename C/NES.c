@@ -113,7 +113,7 @@ unsigned char lcd_busy() {
     *(unsigned char*)PORTA = LCD_R|LCD_E; // set Read and E
     
     *(unsigned char*)PORTA = LCD_R; // set Read
-    *(char*)DDRA = 0xff;  //set PORTA output
+    *(unsigned char*)DDRA = 0xff;  //set PORTA output
     return busy&LCD_BUSY;
 }
 
@@ -376,11 +376,12 @@ void load_custom_characters() {
     lcd_print_char_async(0x02);
 }
 
-void get_controllers() {
-    unsigned char nes_current1;
-    unsigned char nes_current2;
-    unsigned char nes_read;
-    unsigned char idx;
+unsigned char get_controllers() {
+    unsigned char nes_current1 = 0x00;
+    unsigned char nes_current2 = 0x00;
+    unsigned char nes_read = 0x00;
+    unsigned char idx = 0x00;
+    unsigned char nes_changed = 0x00;
     *(unsigned char*)PORTB = 0x08; //NES set latch high
     *(unsigned char*)TIMER1 = 0x00;
     {asm nop;}  //give latch some time
@@ -437,15 +438,23 @@ void get_controllers() {
         {asm nop;}
         *(unsigned char*)PORTB = 0x00; //NES set clock low
     }
-    *(unsigned char*)CTRL1 = nes_current1;
-    *(unsigned char*)CTRL2 = nes_current2;
+    if (*(unsigned char*)CTRL1 != nes_current1) {
+        nes_changed = 0x01;
+        *(unsigned char*)CTRL1 = nes_current1;
+    }
+      if (*(unsigned char*)CTRL2 != nes_current2) {
+        nes_changed = 0x01;
+        *(unsigned char*)CTRL2 = nes_current2;
+    }
+    return nes_changed;
+    
 }
 
 void switch_to_round(unsigned char rd) {
     *(unsigned char*)PLAY1POS = LEFT_MOST;
     *(unsigned char*)PLAY2POS = RIGHT_MOST;
-    *(unsigned char*)PLAY1LF = 0x64;
-    *(unsigned char*)PLAY2LF = 0x64;
+    *(signed char*)PLAY1LF = 0x64;
+    *(signed char*)PLAY2LF = 0x64;
     lcd_send_instruction_async(0x01, 0x00);  //clear the screen
     lcd_send_instruction_async(0x02, 0);  //set display to home
     print_string("    ROUND ");
@@ -454,22 +463,122 @@ void switch_to_round(unsigned char rd) {
     *(unsigned char*)STAGE_CT = 0x28;
 }
 
-void check_fight_over() {
-    if (*(unsigned char*)PLAY1LF == 0x00 || *(unsigned char*)PLAY2LF == 0x00) {
-        if (*(unsigned int*)STAGE == GAME_RD1F) {
-            *(unsigned int*)STAGE = GAME_RD2;
+unsigned char check_fight_over() {
+    if (*(signed char*)PLAY1LF <= 0x00 || *(signed char*)PLAY2LF <= 0x00) {
+        if (*(unsigned char*)STAGE == GAME_RD1F) {
+            *(unsigned char*)STAGE = GAME_RD2;
             switch_to_round(0x02);
+            return 0x01;
         }
-        else if(*(unsigned int*)STAGE == GAME_RD2F) {
-            *(unsigned int*)STAGE = GAME_RD3;
+        else if(*(unsigned char*)STAGE == GAME_RD2F) {
+            *(unsigned char*)STAGE = GAME_RD3;
             switch_to_round(0x03);
+            return 0x01;
         }
         else {
-            *(unsigned int*)STAGE = GAME_START;
+            *(unsigned char*)STAGE = GAME_START;
+            lcd_send_instruction_async(0x01, 0x00);  //clear the screen
+            lcd_send_instruction_async(0x02, 0x00);  //set display to home
             print_string("      START     ");
+            *(unsigned char*)STAGE_CT = 0x28;
+            return 0x01;
         }
     }
-    
+    return 0x00;
+}
+
+unsigned char apply_hits() {
+    unsigned char hits = 0x00;
+    // can't hit if either is jumping
+    if (*(unsigned char*)PLAY1JP || *(unsigned char*)PLAY2JP) {
+        return hits;  
+    }
+
+    // are they right next to each other
+    if (*(unsigned char*)PLAY1POS == (*(unsigned char*)PLAY2POS - 0x01)) {
+        if(*(unsigned char*)CTRL1&NES_A) {
+            if(*(unsigned char*)CTRL2&NES_A) {  //both punching knock back
+                if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
+                    --(*(unsigned char*)PLAY1POS);
+                }
+                if (*(unsigned char*)PLAY2POS != RIGHT_MOST) {
+                    ++(*(unsigned char*)PLAY2POS);
+                }
+                hits = 0x01;
+            }
+            else {  //P2 kicking or doing nothing,  gets hit
+                if (*(unsigned char*)PLAY2POS != RIGHT_MOST) {
+                    ++(*(unsigned char*)PLAY2POS);
+                }
+                (*(char*)PLAY2LF)-=0x0a;
+                hits = 0x01;
+            }
+        }
+        else if(*(unsigned char*)CTRL1&NES_B) {  //player 1 kicking
+            if(*(unsigned char*)CTRL2&NES_A) {  //player 2 punching hits 1
+                if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
+                    --(*(unsigned char*)PLAY1POS);
+                }
+                (*(signed char*)PLAY1LF)-=0x01;
+                hits = 0x01;
+            }
+            else if(*(unsigned char*)CTRL2&NES_B) {  //both kicking,  knock back
+                if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
+                    --(*(unsigned char*)PLAY1POS);
+                }
+                if (*(unsigned char*)PLAY2POS != RIGHT_MOST) {
+                    ++(*(unsigned char*)PLAY2POS);
+                }
+                hits = 0x01;
+            } else {  //player 2 doing nothing, gets hit
+                if (*(unsigned char*)PLAY2POS != RIGHT_MOST) {
+                    ++(*(unsigned char*)PLAY2POS);
+                }
+                (*(char*)PLAY2LF)-=(char)0x0f;
+                hits = 0x01;
+            }
+        } else if(*(unsigned char*)CTRL2&NES_A) {  //player 2 punching hits 1
+            if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
+                --(*(unsigned char*)PLAY1POS);
+            }
+            (*(signed char*)PLAY1LF)-=0x0a;
+            hits = 0x01;
+        } else if(*(unsigned char*)CTRL2&NES_B) {  //player 2 kicking hits 1
+            if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
+                --(*(unsigned char*)PLAY1POS);
+            }
+            (*(signed char*)PLAY1LF)-=0x0f;
+            hits = 0x01;
+        }
+    }
+    return hits;
+}
+
+void draw_power() {
+    char i = 0;
+    char pow = 0;
+    for(i = 0; i < 5; ++i) {
+        pow += 20;
+        if (*(char*)PLAY1LF >= pow) {
+            lcd_print_char_async(0xdb);
+        } else if (*(char*)PLAY1LF >= (pow - 10)){
+            lcd_print_char_async(0xa1);
+        }
+    }
+    lcd_send_instruction_async(0x8b, 0x00);  //set mid through first line
+    pow = 100;
+     for(i = 0; i < 5; ++i) {
+        
+        if (*(char*)PLAY2LF >= pow) {
+            lcd_print_char_async(0xdb);
+        } else if (*(char*)PLAY2LF >= (pow - 10)){
+            lcd_print_char_async(0xa1);
+        } else {
+            lcd_print_char_async(' ');
+        }
+        pow -= 20;
+        
+    }
 }
 
 void draw_scene() {
@@ -478,11 +587,12 @@ void draw_scene() {
     unsigned char ctrl1 = *(unsigned char*)CTRL1;
     unsigned char ctrl2 = *(unsigned char*)CTRL2;
     lcd_send_instruction_async(0x01, 0x00);  //clear the screen
+    draw_power();
     if (*(unsigned char*)PLAY1JP == 0x00) {
        
         if (ctrl1&NES_UP) {
             *(unsigned char*)PLAY1POS = *(unsigned char*)PLAY1POS - 0x40;
-            *(unsigned char*)PLAY1JP = 0x0a;
+            *(unsigned char*)PLAY1JP = 0x05;
         } 
         else {
             if(ctrl1&NES_LEFT) {
@@ -515,7 +625,7 @@ void draw_scene() {
        
         if (ctrl2&NES_UP) {
             *(unsigned char*)PLAY2POS = *(unsigned char*)PLAY2POS - 0x40;
-            *(unsigned char*)PLAY2JP = 0x0a;
+            *(unsigned char*)PLAY2JP = 0x05;
         } 
         else {
              if(ctrl2&NES_LEFT) {
@@ -537,8 +647,19 @@ void draw_scene() {
     } else {
         --(*(unsigned char*)PLAY2JP);
         if (*(unsigned char*)PLAY2JP == 0x00) {
+            
             *(unsigned char*)PLAY2POS = *(unsigned char*)PLAY2POS + 0x40;
         }
+    }
+
+    if ((*(unsigned char*)PLAY1POS&0x0f) >= (*(unsigned char*)PLAY2POS&0x0f)) {  //at same spot
+        if(ctrl1&NES_RIGHT) {  //if player 1 moved right move back
+            --(*(unsigned char*)PLAY1POS);
+        }
+        if(ctrl2&NES_LEFT){ //if player 2 moved left move back
+            ++(*(unsigned char*)PLAY2POS);
+        }
+        
     }
 
     lcd_send_instruction_async(0x80|*(unsigned char*)PLAY1POS, 0x00);
@@ -552,8 +673,8 @@ void draw_scene() {
 void main() {
     unsigned char last_shift;
     unsigned char last_counter;
-    unsigned char nes_controller1;
-    unsigned char nes_controller2;
+    unsigned char last_hits;
+    unsigned char nes_changed;
     *(unsigned char*)IERG = 0xf2;  //set CA1 AND CB1 Interrupt enable
     *(unsigned char*)PCRG = 0x00;  //set CA's to active edge low
     
@@ -571,8 +692,7 @@ void main() {
     *(unsigned char*)PLAY2JP = 0x00;
     last_counter = 0;
     last_shift = 0x00;
-    nes_controller1 = 0x00;
-    nes_controller2 = 0x00;
+    last_hits = 0x01;  //set to 1 so that you force redraw
     *(unsigned char*)QUESTART = 0x00;
     *(unsigned char*)QUEEND = 0x00;
 
@@ -610,17 +730,25 @@ void main() {
                         switch_to_round(0x01);
                     } else if (*(unsigned char*)STAGE == GAME_RD1) {
                         *(unsigned char*)STAGE = GAME_RD1F;
+                        last_hits = 0x01;
                     } else if (*(unsigned char*)STAGE == GAME_RD2) {
                         *(unsigned char*)STAGE = GAME_RD2F;
+                        last_hits = 0x01;
                     } else if (*(unsigned char*)STAGE == GAME_RD3) {
                         *(unsigned char*)STAGE = GAME_RD3F;
+                        last_hits = 0x01;
                     }
 
                 }
             } else {
-                get_controllers();
-                check_fight_over();
-                draw_scene();
+                nes_changed = get_controllers();
+                if(check_fight_over() == 0x00) {
+                    //if nothing pressed and no one is jumping nothing to do
+                    if(nes_changed|last_hits|*(unsigned char*)PLAY1JP|*(unsigned char*)PLAY2JP) {
+                        draw_scene();
+                        last_hits = apply_hits();
+                    }
+                }
             }
             set_timer_2(0xffff);
             *(unsigned char*)TIMER2 = 0x00;
