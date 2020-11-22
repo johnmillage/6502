@@ -89,6 +89,8 @@
 ;#define CTRL2     0x1127  //controller 2 state, 1 byte
 ;#define PLAY1JP   0x1128  //player 1 jumping, 1 byte
 ;#define PLAY2JP   0x1129  //player 2 jumping, 1 byte
+;#define PLAY1WN   0x112a  //player 1 wins, 1 byte
+;#define PLAY2WN   0x112b  //player 2 wins, 1 byte
 ;
 ;
 ;void set_timer_1(unsigned int tm) {
@@ -791,411 +793,6 @@ L20	equ	-5
 	ends
 	efunc
 ;
-;void print_byte(unsigned char b) {
-	code
-	xdef	_print_byte
-	func
-_print_byte:
-b_0	set	9
-	xref	~csav
-	jsr	~csav
-	db	2
-	db	L25
-	dw	L26
-;    unsigned char i = b&HIGH;
-;    
-;    i = i>>4;
-	lda	#240
-	ldy	#9
-	and	(52),Y
-	ldy	#255
-	sta	(54),Y
-	lda	#4
-	sta	<72
-	stx	73
-	lda	(54),Y
-	sta	<68
-	stx	69
-	ldy	#68
-	ldx	#72
-	lda	#64
-	xref	~lsr
-	jsr	~lsr
-	lda	<64
-	ldy	#255
-	sta	(54),Y
-;    if (i < 0x0a) {
-	lda	(54),Y
-	cmp	#10
-	bcc	L27
-	jmp	L10015
-L27:
-;        lcd_print_char_async('0' + i);
-	ldy	#255
-	lda	(54),Y
-	sta	<72
-	txa
-	sta	<73
-	clc
-	lda	#48
-	adc	<72
-	sta	<68
-	txa
-	adc	<73
-	sta	<69
-	txa
-	pha
-	lda	<68
-	pha
-	jsr	_lcd_print_char_async
-;    } else {
-	jmp	L10016
-L10015:
-;        i-=0x0a;
-	ldy	#255
-	lda	(54),Y
-	sta	<72
-	txa
-	sta	<73
-	clc
-	lda	#246
-	adc	<72
-	sta	<68
-	tya
-	adc	<73
-	sta	<69
-	lda	<68
-	sta	(54),Y
-;        lcd_print_char_async('a' + i);
-	lda	(54),Y
-	sta	<72
-	txa
-	sta	<73
-	clc
-	lda	#97
-	adc	<72
-	sta	<68
-	txa
-	adc	<73
-	sta	<69
-	txa
-	pha
-	lda	<68
-	pha
-	jsr	_lcd_print_char_async
-;    }
-L10016:
-;    i = b&LOW;
-	lda	#15
-	ldy	#9
-	and	(52),Y
-	ldy	#255
-	sta	(54),Y
-;     if (i < 0x0a) {
-	lda	(54),Y
-	cmp	#10
-	bcc	L28
-	jmp	L10017
-L28:
-;        lcd_print_char_async('0' + i);
-	ldy	#255
-	lda	(54),Y
-	sta	<72
-	txa
-	sta	<73
-	clc
-	lda	#48
-	adc	<72
-	sta	<68
-	txa
-	adc	<73
-	sta	<69
-	txa
-	pha
-	lda	<68
-	pha
-	jsr	_lcd_print_char_async
-;    } else {
-	jmp	L10018
-L10017:
-;        i-=0x0a;
-	ldy	#255
-	lda	(54),Y
-	sta	<72
-	txa
-	sta	<73
-	clc
-	lda	#246
-	adc	<72
-	sta	<68
-	tya
-	adc	<73
-	sta	<69
-	lda	<68
-	sta	(54),Y
-;        lcd_print_char_async('a' + i);
-	lda	(54),Y
-	sta	<72
-	txa
-	sta	<73
-	clc
-	lda	#97
-	adc	<72
-	sta	<68
-	txa
-	adc	<73
-	sta	<69
-	txa
-	pha
-	lda	<68
-	pha
-	jsr	_lcd_print_char_async
-;    }
-L10018:
-;}
-	rts
-L25	equ	0
-L26	equ	-1
-	ends
-	efunc
-;
-;void print_nes(unsigned char b) {
-	code
-	xdef	_print_nes
-	func
-_print_nes:
-b_0	set	9
-	xref	~csav
-	jsr	~csav
-	db	2
-	db	L29
-	dw	L30
-;    unsigned char i = 0;
-;    if (b&0x80) {
-	ldy	#255
-	sta	(54),Y
-	ldy	#9
-	lda	(52),Y
-	sta	<72
-	txa
-	sta	<73
-	lda	<72
-	and	#128
-	bne	L31
-	jmp	L10019
-L31:
-;        lcd_print_char_async('A');
-	phx
-	lda	#65
-	pha
-	jsr	_lcd_print_char_async
-;    }
-;    else {
-	jmp	L10020
-L10019:
-;        lcd_print_char_async(' ');
-	phx
-	lda	#32
-	pha
-	jsr	_lcd_print_char_async
-;    }
-L10020:
-;    if (b&0x40) {
-	ldy	#9
-	lda	(52),Y
-	sta	<72
-	txa
-	sta	<73
-	lda	<72
-	and	#64
-	bne	L32
-	jmp	L10021
-L32:
-;        lcd_print_char_async('B');
-	phx
-	lda	#66
-	pha
-	jsr	_lcd_print_char_async
-;    }
-;    else {
-	jmp	L10022
-L10021:
-;        lcd_print_char_async(' ');
-	phx
-	lda	#32
-	pha
-	jsr	_lcd_print_char_async
-;    }
-L10022:
-;    if (b&0x20) {
-	ldy	#9
-	lda	(52),Y
-	sta	<72
-	txa
-	sta	<73
-	lda	<72
-	and	#32
-	bne	L33
-	jmp	L10023
-L33:
-;        lcd_print_char_async('s');
-	phx
-	lda	#115
-	pha
-	jsr	_lcd_print_char_async
-;    }
-;    else {
-	jmp	L10024
-L10023:
-;        lcd_print_char_async(' ');
-	phx
-	lda	#32
-	pha
-	jsr	_lcd_print_char_async
-;    }
-L10024:
-;    if (b&0x10) {
-	ldy	#9
-	lda	(52),Y
-	sta	<72
-	txa
-	sta	<73
-	lda	<72
-	and	#16
-	bne	L34
-	jmp	L10025
-L34:
-;        lcd_print_char_async('S');
-	phx
-	lda	#83
-	pha
-	jsr	_lcd_print_char_async
-;    }
-;    else {
-	jmp	L10026
-L10025:
-;        lcd_print_char_async(' ');
-	phx
-	lda	#32
-	pha
-	jsr	_lcd_print_char_async
-;    }
-L10026:
-;    if (b&0x08) {
-	ldy	#9
-	lda	(52),Y
-	sta	<72
-	txa
-	sta	<73
-	lda	<72
-	and	#8
-	bne	L35
-	jmp	L10027
-L35:
-;        lcd_print_char_async('U');
-	phx
-	lda	#85
-	pha
-	jsr	_lcd_print_char_async
-;    } 
-;    else {
-	jmp	L10028
-L10027:
-;        lcd_print_char_async(' ');
-	phx
-	lda	#32
-	pha
-	jsr	_lcd_print_char_async
-;    }
-L10028:
-;    if (b&0x04) {
-	ldy	#9
-	lda	(52),Y
-	sta	<72
-	txa
-	sta	<73
-	lda	<72
-	and	#4
-	bne	L36
-	jmp	L10029
-L36:
-;        lcd_print_char_async('D');
-	phx
-	lda	#68
-	pha
-	jsr	_lcd_print_char_async
-;    }
-;    else {
-	jmp	L10030
-L10029:
-;        lcd_print_char_async(' ');
-	phx
-	lda	#32
-	pha
-	jsr	_lcd_print_char_async
-;    }
-L10030:
-;    if (b&0x02) {
-	ldy	#9
-	lda	(52),Y
-	sta	<72
-	txa
-	sta	<73
-	lda	<72
-	and	#2
-	bne	L37
-	jmp	L10031
-L37:
-;        lcd_print_char_async('L');
-	phx
-	lda	#76
-	pha
-	jsr	_lcd_print_char_async
-;    }
-;    else {
-	jmp	L10032
-L10031:
-;        lcd_print_char_async(' ');
-	phx
-	lda	#32
-	pha
-	jsr	_lcd_print_char_async
-;    }
-L10032:
-;    if (b&0x01) {
-	ldy	#9
-	lda	(52),Y
-	sta	<72
-	txa
-	sta	<73
-	lda	<72
-	and	#1
-	bne	L38
-	jmp	L10033
-L38:
-;        lcd_print_char_async('R');
-	phx
-	lda	#82
-	pha
-	jsr	_lcd_print_char_async
-;    }
-;    else {
-	jmp	L10034
-L10033:
-;        lcd_print_char_async(' ');
-	phx
-	lda	#32
-	pha
-	jsr	_lcd_print_char_async
-;    }
-L10034:
-;}
-	rts
-L29	equ	0
-L30	equ	-1
-	ends
-	efunc
-;
 ;void print_string(const unsigned char * str)
 ;{
 	code
@@ -1206,10 +803,10 @@ str_0	set	9
 	xref	~csav
 	jsr	~csav
 	db	2
-	db	L39
-	dw	L40
+	db	L25
+	dw	L26
 ;    while(*str != 0) {
-L10035:
+L10015:
 	ldy	#9
 	lda	(52),Y
 	sta	<72
@@ -1217,9 +814,9 @@ L10035:
 	lda	(52),Y
 	sta	<73
 	lda	(72)
-	bne	L41
-	jmp	L10036
-L41:
+	bne	L27
+	jmp	L10016
+L27:
 ;        lcd_print_char_async(*str);
 	ldy	#9
 	lda	(52),Y
@@ -1243,12 +840,12 @@ L41:
 	adc	(52),Y
 	sta	(52),Y
 ;    }
-	jmp	L10035
-L10036:
+	jmp	L10015
+L10016:
 ;}
 	rts
-L39	equ	0
-L40	equ	0
+L25	equ	0
+L26	equ	0
 	ends
 	efunc
 ;
@@ -1260,8 +857,8 @@ _load_custom_characters:
 	xref	~csav
 	jsr	~csav
 	db	0
-	db	L42
-	dw	L43
+	db	L28
+	dw	L29
 ;    lcd_send_instruction_async(0x40, 0);  //set CGRAM address 0
 	phx
 	phx
@@ -1638,8 +1235,8 @@ _load_custom_characters:
 	jsr	_lcd_print_char_async
 ;}
 	rts
-L42	equ	0
-L43	equ	0
+L28	equ	0
+L29	equ	0
 	ends
 	efunc
 ;
@@ -1651,8 +1248,8 @@ _get_controllers:
 	xref	~csav
 	jsr	~csav
 	db	0
-	db	L44
-	dw	L45
+	db	L30
+	dw	L31
 ;    unsigned char nes_current1 = 0x00;
 ;    unsigned char nes_current2 = 0x00;
 ;    unsigned char nes_read = 0x00;
@@ -1695,9 +1292,9 @@ _get_controllers:
 	sta	<73
 	lda	<72
 	and	#1
-	bne	L46
-	jmp	L10037
-L46:
+	bne	L32
+	jmp	L10017
+L32:
 ;        nes_current1 = nes_current1<<1;
 	lda	#1
 	sta	<72
@@ -1716,8 +1313,8 @@ L46:
 	sta	(54),Y
 ;        
 ;    } else {
-	jmp	L10038
-L10037:
+	jmp	L10018
+L10017:
 ;        nes_current1 = nes_current1<<1;
 	lda	#1
 	sta	<72
@@ -1742,7 +1339,7 @@ L10037:
 	txa
 	adc	#0
 ;    }
-L10038:
+L10018:
 ;    nes_read = nes_read>>1;
 	lda	#1
 	sta	<72
@@ -1767,9 +1364,9 @@ L10038:
 	sta	<73
 	lda	<72
 	and	#1
-	bne	L47
-	jmp	L10039
-L47:
+	bne	L33
+	jmp	L10019
+L33:
 ;        nes_current2 = nes_current2<<1;
 	lda	#1
 	sta	<72
@@ -1787,8 +1384,8 @@ L47:
 	ldy	#254
 	sta	(54),Y
 ;    } else {
-	jmp	L10040
-L10039:
+	jmp	L10020
+L10019:
 ;        nes_current2 = nes_current2<<1;
 	lda	#1
 	sta	<72
@@ -1813,7 +1410,7 @@ L10039:
 	txa
 	adc	#0
 ;    }
-L10040:
+L10020:
 ;    //pulse the clock
 ;    *(unsigned char*)PORTB = 0x04; //NES set clock high
 	lda	#4
@@ -1831,8 +1428,8 @@ L10040:
 	txa
 	ldy	#252
 	sta	(54),Y
-	jmp	L10042
-L10041:
+	jmp	L10022
+L10021:
 	clc
 	lda	#1
 	ldy	#252
@@ -1840,13 +1437,13 @@ L10041:
 	sta	(54),Y
 	txa
 	adc	#0
-L10042:
+L10022:
 	ldy	#252
 	lda	(54),Y
 	cmp	#7
-	bcc	L48
-	jmp	L10043
-L48:
+	bcc	L34
+	jmp	L10023
+L34:
 ;        nes_read = *(unsigned char*)PORTB;
 	lda	24576
 	ldy	#253
@@ -1859,9 +1456,9 @@ L48:
 	sta	<73
 	lda	<72
 	and	#1
-	bne	L49
-	jmp	L10044
-L49:
+	bne	L35
+	jmp	L10024
+L35:
 ;            nes_current1 = nes_current1<<1;
 	lda	#1
 	sta	<72
@@ -1879,8 +1476,8 @@ L49:
 	ldy	#255
 	sta	(54),Y
 ;        } else {
-	jmp	L10045
-L10044:
+	jmp	L10025
+L10024:
 ;            nes_current1 = nes_current1<<1;
 	lda	#1
 	sta	<72
@@ -1905,7 +1502,7 @@ L10044:
 	txa
 	adc	#0
 ;        }
-L10045:
+L10025:
 ;        nes_read = nes_read>>1;
 	lda	#1
 	sta	<72
@@ -1930,9 +1527,9 @@ L10045:
 	sta	<73
 	lda	<72
 	and	#1
-	bne	L50
-	jmp	L10046
-L50:
+	bne	L36
+	jmp	L10026
+L36:
 ;            nes_current2 = nes_current2<<1;
 	lda	#1
 	sta	<72
@@ -1950,8 +1547,8 @@ L50:
 	ldy	#254
 	sta	(54),Y
 ;        } else {
-	jmp	L10047
-L10046:
+	jmp	L10027
+L10026:
 ;            nes_current2 = nes_current2<<1;
 	lda	#1
 	sta	<72
@@ -1976,7 +1573,7 @@ L10046:
 	txa
 	adc	#0
 ;        }
-L10047:
+L10027:
 ;        //pulse the clock again
 ;        *(unsigned char*)PORTB = 0x04; //NES set clock high
 	lda	#4
@@ -1990,15 +1587,15 @@ L10047:
 ;        *(unsigned char*)PORTB = 0x00; //NES set clock low
 	stx	24576
 ;    }
-	jmp	L10041
-L10043:
+	jmp	L10021
+L10023:
 ;    if (*(unsigned char*)CTRL1 != nes_current1) {
 	lda	4390
 	ldy	#255
 	cmp	(54),Y
-	bne	L51
-	jmp	L10048
-L51:
+	bne	L37
+	jmp	L10028
+L37:
 ;        nes_changed = 0x01;
 	lda	#1
 	ldy	#251
@@ -2009,13 +1606,13 @@ L51:
 	sta	4390
 ;    }
 ;      if (*(unsigned char*)CTRL2 != nes_current2) {
-L10048:
+L10028:
 	lda	4391
 	ldy	#254
 	cmp	(54),Y
-	bne	L52
-	jmp	L10049
-L52:
+	bne	L38
+	jmp	L10029
+L38:
 ;        nes_changed = 0x01;
 	lda	#1
 	ldy	#251
@@ -2026,7 +1623,7 @@ L52:
 	sta	4391
 ;    }
 ;    return nes_changed;
-L10049:
+L10029:
 	ldy	#251
 	lda	(54),Y
 	sta	<56
@@ -2035,8 +1632,8 @@ L10049:
 	rts
 ;    
 ;}
-L44	equ	0
-L45	equ	-5
+L30	equ	0
+L31	equ	-5
 	ends
 	efunc
 ;
@@ -2049,8 +1646,8 @@ rd_0	set	9
 	xref	~csav
 	jsr	~csav
 	db	2
-	db	L53
-	dw	L54
+	db	L39
+	dw	L40
 ;    *(unsigned char*)PLAY1POS = LEFT_MOST;
 	lda	#64
 	sta	4384
@@ -2110,8 +1707,8 @@ rd_0	set	9
 	sta	4388
 ;}
 	rts
-L53	equ	0
-L54	equ	0
+L39	equ	0
+L40	equ	0
 	ends
 	efunc
 	data
@@ -2128,33 +1725,54 @@ _check_fight_over:
 	xref	~csav
 	jsr	~csav
 	db	0
-	db	L56
-	dw	L57
+	db	L42
+	dw	L43
 ;    if (*(signed char*)PLAY1LF <= 0x00 || *(signed char*)PLAY2LF <= 0x00) {
 	sec
 	sbc	4386
-	bvs	L59
+	bvs	L45
 	eor	#$80
-L59:
-	bpl	L60
-	jmp	L58
-L60:
+L45:
+	bpl	L46
+	jmp	L44
+L46:
 	txa
 	sec
 	sbc	4387
-	bvs	L61
+	bvs	L47
 	eor	#$80
-L61:
-	bmi	L62
-	jmp	L10050
-L62:
-L58:
+L47:
+	bmi	L48
+	jmp	L10030
+L48:
+L44:
+;
+;        if(*(signed char*)PLAY1LF > 0x00) {
+	txa
+	sec
+	sbc	4386
+	bvs	L49
+	eor	#$80
+L49:
+	bpl	L50
+	jmp	L10031
+L50:
+;            ++(*(signed char*)PLAY1WN);
+	inc	4394
+;        }
+;        else {
+	jmp	L10032
+L10031:
+;            ++(*(signed char*)PLAY2WN);
+	inc	4395
+;        }
+L10032:
 ;        if (*(unsigned char*)STAGE == GAME_RD1F) {
 	lda	4389
 	cmp	#5
-	beq	L63
-	jmp	L10051
-L63:
+	beq	L51
+	jmp	L10033
+L51:
 ;            *(unsigned char*)STAGE = GAME_RD2;
 	lda	#3
 	sta	4389
@@ -2169,12 +1787,12 @@ L63:
 	rts
 ;        }
 ;        else if(*(unsigned char*)STAGE == GAME_RD2F) {
-L10051:
+L10033:
 	lda	4389
 	cmp	#6
-	beq	L64
-	jmp	L10052
-L64:
+	beq	L52
+	jmp	L10034
+L52:
 ;            *(unsigned char*)STAGE = GAME_RD3;
 	lda	#4
 	sta	4389
@@ -2189,14 +1807,15 @@ L64:
 	rts
 ;        }
 ;        else {
-L10052:
-;            *(unsigned char*)STAGE = GAME_START;
-	lda	#1
+L10034:
+;            *(unsigned char*)STAGE = GAME_END;
+	lda	#8
 	sta	4389
 ;            lcd_send_instruction_async(0x01, 0x00);  //clear the screen
 	phx
 	phx
 	phx
+	lda	#1
 	pha
 	jsr	_lcd_send_instruction_async
 ;            lcd_send_instruction_async(0x02, 0x00);  //set display to home
@@ -2206,35 +1825,64 @@ L10052:
 	lda	#2
 	pha
 	jsr	_lcd_send_instruction_async
-;            print_string("      START     ");
-	lda	#>L55
+;            if (*(signed char*)PLAY1WN > *(signed char*)PLAY2WN) {
+	lda	4395
+	sec
+	sbc	4394
+	bvs	L53
+	eor	#$80
+L53:
+	bpl	L54
+	jmp	L10035
+L54:
+;                print_string("  Player 1 Wins  ");
+	lda	#>L41
 	pha
-	lda	#<L55
+	lda	#<L41
 	pha
 	jsr	_print_string
+;            }
+;            else {
+	jmp	L10036
+L10035:
+;                print_string("  Player 2 Wins  ");
+	lda	#>L41+18
+	pha
+	lda	#<L41+18
+	pha
+	jsr	_print_string
+;            }
+L10036:
+;
+;            *(signed char*)PLAY1WN = 0x00;
+	stx	4394
+;            *(signed char*)PLAY2WN = 0x00;
+	stx	4395
 ;            *(unsigned char*)STAGE_CT = 0x28;
 	lda	#40
 	sta	4388
 ;            return 0x01;
-	sty	<56
+	lda	#1
+	sta	<56
 	stx	<57
 	rts
 ;        }
 ;    }
 ;    return 0x00;
-L10050:
+L10030:
 	stx	<56
 	stx	<57
 	rts
 ;}
-L56	equ	0
-L57	equ	0
+L42	equ	0
+L43	equ	0
 	ends
 	efunc
 	data
-L55:
-	db	$20,$20,$20,$20,$20,$20,$53,$54,$41,$52,$54,$20,$20,$20,$20
-	db	$20,$00
+L41:
+	db	$20,$20,$50,$6C,$61,$79,$65,$72,$20,$31,$20,$57,$69,$6E,$73
+	db	$20,$20,$00,$20,$20,$50,$6C,$61,$79,$65,$72,$20,$32,$20,$57
+	db	$69,$6E,$73,$20,$20,$00
 	ends
 ;
 ;unsigned char apply_hits() {
@@ -2245,22 +1893,22 @@ _apply_hits:
 	xref	~csav
 	jsr	~csav
 	db	0
-	db	L66
-	dw	L67
+	db	L56
+	dw	L57
 ;    unsigned char hits = 0x00;
 ;    // can't hit if either is jumping
 ;    if (*(unsigned char*)PLAY1JP || *(unsigned char*)PLAY2JP) {
 	ldy	#255
 	sta	(54),Y
 	lda	4392
-	beq	L69
-	jmp	L68
-L69:
+	beq	L59
+	jmp	L58
+L59:
 	lda	4393
-	bne	L70
-	jmp	L10053
-L70:
-L68:
+	bne	L60
+	jmp	L10037
+L60:
+L58:
 ;        return hits;  
 	ldy	#255
 	lda	(54),Y
@@ -2272,7 +1920,7 @@ L68:
 ;
 ;    // are they right next to each other
 ;    if (*(unsigned char*)PLAY1POS == (*(unsigned char*)PLAY2POS - 0x01)) {
-L10053:
+L10037:
 	lda	4384
 	sta	<72
 	txa
@@ -2290,13 +1938,13 @@ L10053:
 	sta	<65
 	lda	<72
 	cmp	<64
-	bne	L10055
+	bne	L10039
 	lda	<73
 	cmp	<65
-L10055:
-	beq	L71
-	jmp	L10054
-L71:
+L10039:
+	beq	L61
+	jmp	L10038
+L61:
 ;        if(*(unsigned char*)CTRL1&NES_A) {
 	lda	4390
 	sta	<72
@@ -2304,9 +1952,9 @@ L71:
 	sta	<73
 	lda	<72
 	and	#128
-	bne	L72
-	jmp	L10056
-L72:
+	bne	L62
+	jmp	L10040
+L62:
 ;            if(*(unsigned char*)CTRL2&NES_A) {  //both punching knock back
 	lda	4391
 	sta	<72
@@ -2314,15 +1962,15 @@ L72:
 	sta	<73
 	lda	<72
 	and	#128
-	bne	L73
-	jmp	L10057
-L73:
+	bne	L63
+	jmp	L10041
+L63:
 ;                if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
 	lda	4384
 	cmp	#64
-	bne	L74
-	jmp	L10058
-L74:
+	bne	L64
+	jmp	L10042
+L64:
 ;                    --(*(unsigned char*)PLAY1POS);
 	clc
 	lda	#255
@@ -2332,35 +1980,35 @@ L74:
 	adc	#0
 ;                }
 ;                if (*(unsigned char*)PLAY2POS != RIGHT_MOST) {
-L10058:
+L10042:
 	lda	4385
 	cmp	#79
-	bne	L75
-	jmp	L10059
-L75:
+	bne	L65
+	jmp	L10043
+L65:
 ;                    ++(*(unsigned char*)PLAY2POS);
 	inc	4385
 ;                }
 ;                hits = 0x01;
-L10059:
+L10043:
 	lda	#1
 	ldy	#255
 	sta	(54),Y
 ;            }
 ;            else {  //P2 kicking or doing nothing,  gets hit
-	jmp	L10060
-L10057:
+	jmp	L10044
+L10041:
 ;                if (*(unsigned char*)PLAY2POS != RIGHT_MOST) {
 	lda	4385
 	cmp	#79
-	bne	L76
-	jmp	L10061
-L76:
+	bne	L66
+	jmp	L10045
+L66:
 ;                    ++(*(unsigned char*)PLAY2POS);
 	inc	4385
 ;                }
 ;                (*(char*)PLAY2LF)-=0x0a;
-L10061:
+L10045:
 	lda	4387
 	sta	<72
 	txa
@@ -2379,20 +2027,20 @@ L10061:
 	ldy	#255
 	sta	(54),Y
 ;            }
-L10060:
+L10044:
 ;        }
 ;        else if(*(unsigned char*)CTRL1&NES_B) {  //player 1 kicking
-	jmp	L10062
-L10056:
+	jmp	L10046
+L10040:
 	lda	4390
 	sta	<72
 	txa
 	sta	<73
 	lda	<72
 	and	#64
-	bne	L77
-	jmp	L10063
-L77:
+	bne	L67
+	jmp	L10047
+L67:
 ;            if(*(unsigned char*)CTRL2&NES_A) {  //player 2 punching hits 1
 	lda	4391
 	sta	<72
@@ -2400,15 +2048,15 @@ L77:
 	sta	<73
 	lda	<72
 	and	#128
-	bne	L78
-	jmp	L10064
-L78:
+	bne	L68
+	jmp	L10048
+L68:
 ;                if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
 	lda	4384
 	cmp	#64
-	bne	L79
-	jmp	L10065
-L79:
+	bne	L69
+	jmp	L10049
+L69:
 ;                    --(*(unsigned char*)PLAY1POS);
 	clc
 	lda	#255
@@ -2418,7 +2066,7 @@ L79:
 	adc	#0
 ;                }
 ;                (*(signed char*)PLAY1LF)-=0x01;
-L10065:
+L10049:
 	clc
 	lda	#255
 	adc	4386
@@ -2429,23 +2077,23 @@ L10065:
 	sta	(54),Y
 ;            }
 ;            else if(*(unsigned char*)CTRL2&NES_B) {  //both kicking,  knock back
-	jmp	L10066
-L10064:
+	jmp	L10050
+L10048:
 	lda	4391
 	sta	<72
 	txa
 	sta	<73
 	lda	<72
 	and	#64
-	bne	L80
-	jmp	L10067
-L80:
+	bne	L70
+	jmp	L10051
+L70:
 ;                if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
 	lda	4384
 	cmp	#64
-	bne	L81
-	jmp	L10068
-L81:
+	bne	L71
+	jmp	L10052
+L71:
 ;                    --(*(unsigned char*)PLAY1POS);
 	clc
 	lda	#255
@@ -2455,34 +2103,34 @@ L81:
 	adc	#0
 ;                }
 ;                if (*(unsigned char*)PLAY2POS != RIGHT_MOST) {
-L10068:
+L10052:
 	lda	4385
 	cmp	#79
-	bne	L82
-	jmp	L10069
-L82:
+	bne	L72
+	jmp	L10053
+L72:
 ;                    ++(*(unsigned char*)PLAY2POS);
 	inc	4385
 ;                }
 ;                hits = 0x01;
-L10069:
+L10053:
 	lda	#1
 	ldy	#255
 	sta	(54),Y
 ;            } else {  //player 2 doing nothing, gets hit
-	jmp	L10070
-L10067:
+	jmp	L10054
+L10051:
 ;                if (*(unsigned char*)PLAY2POS != RIGHT_MOST) {
 	lda	4385
 	cmp	#79
-	bne	L83
-	jmp	L10071
-L83:
+	bne	L73
+	jmp	L10055
+L73:
 ;                    ++(*(unsigned char*)PLAY2POS);
 	inc	4385
 ;                }
 ;                (*(char*)PLAY2LF)-=(char)0x0f;
-L10071:
+L10055:
 	lda	4387
 	sta	<72
 	txa
@@ -2501,26 +2149,26 @@ L10071:
 	ldy	#255
 	sta	(54),Y
 ;            }
-L10070:
-L10066:
+L10054:
+L10050:
 ;        } else if(*(unsigned char*)CTRL2&NES_A) {  //player 2 punching hits 1
-	jmp	L10072
-L10063:
+	jmp	L10056
+L10047:
 	lda	4391
 	sta	<72
 	txa
 	sta	<73
 	lda	<72
 	and	#128
-	bne	L84
-	jmp	L10073
-L84:
+	bne	L74
+	jmp	L10057
+L74:
 ;            if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
 	lda	4384
 	cmp	#64
-	bne	L85
-	jmp	L10074
-L85:
+	bne	L75
+	jmp	L10058
+L75:
 ;                --(*(unsigned char*)PLAY1POS);
 	clc
 	lda	#255
@@ -2530,7 +2178,7 @@ L85:
 	adc	#0
 ;            }
 ;            (*(signed char*)PLAY1LF)-=0x0a;
-L10074:
+L10058:
 	clc
 	lda	#246
 	adc	4386
@@ -2540,23 +2188,23 @@ L10074:
 	ldy	#255
 	sta	(54),Y
 ;        } else if(*(unsigned char*)CTRL2&NES_B) {  //player 2 kicking hits 1
-	jmp	L10075
-L10073:
+	jmp	L10059
+L10057:
 	lda	4391
 	sta	<72
 	txa
 	sta	<73
 	lda	<72
 	and	#64
-	bne	L86
-	jmp	L10076
-L86:
+	bne	L76
+	jmp	L10060
+L76:
 ;            if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
 	lda	4384
 	cmp	#64
-	bne	L87
-	jmp	L10077
-L87:
+	bne	L77
+	jmp	L10061
+L77:
 ;                --(*(unsigned char*)PLAY1POS);
 	clc
 	lda	#255
@@ -2566,7 +2214,7 @@ L87:
 	adc	#0
 ;            }
 ;            (*(signed char*)PLAY1LF)-=0x0f;
-L10077:
+L10061:
 	clc
 	lda	#241
 	adc	4386
@@ -2577,12 +2225,12 @@ L10077:
 	sta	(54),Y
 ;        }
 ;    }
-L10076:
-L10075:
-L10072:
-L10062:
+L10060:
+L10059:
+L10056:
+L10046:
 ;    return hits;
-L10054:
+L10038:
 	ldy	#255
 	lda	(54),Y
 	sta	<56
@@ -2590,8 +2238,8 @@ L10054:
 	sta	<57
 	rts
 ;}
-L66	equ	0
-L67	equ	-1
+L56	equ	0
+L57	equ	-1
 	ends
 	efunc
 ;
@@ -2603,8 +2251,8 @@ _draw_power:
 	xref	~csav
 	jsr	~csav
 	db	0
-	db	L88
-	dw	L89
+	db	L78
+	dw	L79
 ;    char i = 0;
 ;    char pow = 0;
 ;    for(i = 0; i < 5; ++i) {
@@ -2614,8 +2262,8 @@ _draw_power:
 	sta	(54),Y
 	iny
 	sta	(54),Y
-	jmp	L10079
-L10078:
+	jmp	L10063
+L10062:
 	clc
 	lda	#1
 	ldy	#255
@@ -2623,13 +2271,13 @@ L10078:
 	sta	(54),Y
 	txa
 	adc	#0
-L10079:
+L10063:
 	ldy	#255
 	lda	(54),Y
 	cmp	#5
-	bcc	L90
-	jmp	L10080
-L90:
+	bcc	L80
+	jmp	L10064
+L80:
 ;        pow += 20;
 	clc
 	lda	#20
@@ -2639,17 +2287,17 @@ L90:
 ;        if (*(char*)PLAY1LF >= pow) {
 	lda	4386
 	cmp	(54),Y
-	bcs	L91
-	jmp	L10081
-L91:
+	bcs	L81
+	jmp	L10065
+L81:
 ;            lcd_print_char_async(0xdb);
 	phx
 	lda	#219
 	pha
 	jsr	_lcd_print_char_async
 ;        } else if (*(char*)PLAY1LF >= (pow - 10)){
-	jmp	L10082
-L10081:
+	jmp	L10066
+L10065:
 	lda	4386
 	sta	<72
 	txa
@@ -2670,30 +2318,127 @@ L10081:
 	cmp	<64
 	lda	<73
 	sbc	<65
-	bvs	L92
+	bvs	L82
 	eor	#$80
-L92:
-	bmi	L93
-	jmp	L10083
-L93:
+L82:
+	bmi	L83
+	jmp	L10067
+L83:
 ;            lcd_print_char_async(0xa1);
 	phx
 	lda	#161
 	pha
 	jsr	_lcd_print_char_async
+;        } else {
+	jmp	L10068
+L10067:
+;            lcd_print_char_async(' ');
+	phx
+	lda	#32
+	pha
+	jsr	_lcd_print_char_async
 ;        }
+L10068:
+L10066:
 ;    }
-L10083:
-L10082:
-	jmp	L10078
-L10080:
-;    lcd_send_instruction_async(0x8b, 0x00);  //set mid through first line
+	jmp	L10062
+L10064:
+;    
+;    if (*(char*)PLAY1WN == 0x02) {
+	lda	4394
+	cmp	#2
+	beq	L84
+	jmp	L10069
+L84:
+;        lcd_print_char_async('|');
+	phx
+	lda	#124
+	pha
+	jsr	_lcd_print_char_async
+;    } else {
+	jmp	L10070
+L10069:
+;        lcd_print_char_async(' ');
+	phx
+	lda	#32
+	pha
+	jsr	_lcd_print_char_async
+;    }
+L10070:
+;    if (*(char*)PLAY1WN >= 0x01) {
+	lda	4394
+	cmp	#1
+	bcs	L85
+	jmp	L10071
+L85:
+;        lcd_print_char_async('|');
+	phx
+	lda	#124
+	pha
+	jsr	_lcd_print_char_async
+;    } else {
+	jmp	L10072
+L10071:
+;        lcd_print_char_async(' ');
+	phx
+	lda	#32
+	pha
+	jsr	_lcd_print_char_async
+;    }
+L10072:
+;
+;    
+;   
+;
+;    lcd_send_instruction_async(0x89, 0x00);  //set mid through first line
 	phx
 	phx
 	phx
-	lda	#139
+	lda	#137
 	pha
 	jsr	_lcd_send_instruction_async
+;    if (*(char*)PLAY2WN >= 0x01) {
+	lda	4395
+	cmp	#1
+	bcs	L86
+	jmp	L10073
+L86:
+;        lcd_print_char_async('|');
+	phx
+	lda	#124
+	pha
+	jsr	_lcd_print_char_async
+;    } else {
+	jmp	L10074
+L10073:
+;        lcd_print_char_async(' ');
+	phx
+	lda	#32
+	pha
+	jsr	_lcd_print_char_async
+;    }
+L10074:
+;    if (*(char*)PLAY2WN == 0x02) {
+	lda	4395
+	cmp	#2
+	beq	L87
+	jmp	L10075
+L87:
+;        lcd_print_char_async('|');
+	phx
+	lda	#124
+	pha
+	jsr	_lcd_print_char_async
+;    } else {
+	jmp	L10076
+L10075:
+;        lcd_print_char_async(' ');
+	phx
+	lda	#32
+	pha
+	jsr	_lcd_print_char_async
+;    }
+L10076:
 ;    pow = 100;
 	lda	#100
 	ldy	#254
@@ -2702,8 +2447,8 @@ L10080:
 	txa
 	iny
 	sta	(54),Y
-	jmp	L10085
-L10084:
+	jmp	L10078
+L10077:
 	clc
 	lda	#1
 	ldy	#255
@@ -2711,29 +2456,29 @@ L10084:
 	sta	(54),Y
 	txa
 	adc	#0
-L10085:
+L10078:
 	ldy	#255
 	lda	(54),Y
 	cmp	#5
-	bcc	L94
-	jmp	L10086
-L94:
+	bcc	L88
+	jmp	L10079
+L88:
 ;        
 ;        if (*(char*)PLAY2LF >= pow) {
 	lda	4387
 	ldy	#254
 	cmp	(54),Y
-	bcs	L95
-	jmp	L10087
-L95:
+	bcs	L89
+	jmp	L10080
+L89:
 ;            lcd_print_char_async(0xdb);
 	phx
 	lda	#219
 	pha
 	jsr	_lcd_print_char_async
 ;        } else if (*(char*)PLAY2LF >= (pow - 10)){
-	jmp	L10088
-L10087:
+	jmp	L10081
+L10080:
 	lda	4387
 	sta	<72
 	txa
@@ -2754,28 +2499,28 @@ L10087:
 	cmp	<64
 	lda	<73
 	sbc	<65
-	bvs	L96
+	bvs	L90
 	eor	#$80
-L96:
-	bmi	L97
-	jmp	L10089
-L97:
+L90:
+	bmi	L91
+	jmp	L10082
+L91:
 ;            lcd_print_char_async(0xa1);
 	phx
 	lda	#161
 	pha
 	jsr	_lcd_print_char_async
 ;        } else {
-	jmp	L10090
-L10089:
+	jmp	L10083
+L10082:
 ;            lcd_print_char_async(' ');
 	phx
 	lda	#32
 	pha
 	jsr	_lcd_print_char_async
 ;        }
-L10090:
-L10088:
+L10083:
+L10081:
 ;        pow -= 20;
 	ldy	#254
 	lda	(54),Y
@@ -2793,12 +2538,12 @@ L10088:
 	sta	(54),Y
 ;        
 ;    }
-	jmp	L10084
-L10086:
+	jmp	L10077
+L10079:
 ;}
 	rts
-L88	equ	0
-L89	equ	-2
+L78	equ	0
+L79	equ	-2
 	ends
 	efunc
 ;
@@ -2810,8 +2555,8 @@ _draw_scene:
 	xref	~csav
 	jsr	~csav
 	db	0
-	db	L98
-	dw	L99
+	db	L92
+	dw	L93
 ;    unsigned char p1_sprite = P1_STAND;
 ;    unsigned char p2_sprite = P2_STAND;
 ;    unsigned char ctrl1 = *(unsigned char*)CTRL1;
@@ -2838,9 +2583,9 @@ _draw_scene:
 	jsr	_draw_power
 ;    if (*(unsigned char*)PLAY1JP == 0x00) {
 	lda	4392
-	beq	L100
-	jmp	L10091
-L100:
+	beq	L94
+	jmp	L10084
+L94:
 ;       
 ;        if (ctrl1&NES_UP) {
 	ldy	#253
@@ -2850,9 +2595,9 @@ L100:
 	sta	<73
 	lda	<72
 	and	#8
-	bne	L101
-	jmp	L10092
-L101:
+	bne	L95
+	jmp	L10085
+L95:
 ;            *(unsigned char*)PLAY1POS = *(unsigned char*)PLAY1POS - 0x40;
 	lda	4384
 	sta	<72
@@ -2867,13 +2612,13 @@ L101:
 	sta	<69
 	lda	<68
 	sta	4384
-;            *(unsigned char*)PLAY1JP = 0x05;
-	lda	#5
+;            *(unsigned char*)PLAY1JP = 0x03;
+	lda	#3
 	sta	4392
 ;        } 
 ;        else {
-	jmp	L10093
-L10092:
+	jmp	L10086
+L10085:
 ;            if(ctrl1&NES_LEFT) {
 	ldy	#253
 	lda	(54),Y
@@ -2882,15 +2627,15 @@ L10092:
 	sta	<73
 	lda	<72
 	and	#2
-	bne	L102
-	jmp	L10094
-L102:
+	bne	L96
+	jmp	L10087
+L96:
 ;                if (*(unsigned char*)PLAY1POS != LEFT_MOST) {
 	lda	4384
 	cmp	#64
-	bne	L103
-	jmp	L10095
-L103:
+	bne	L97
+	jmp	L10088
+L97:
 ;                    --(*(unsigned char*)PLAY1POS);
 	clc
 	lda	#255
@@ -2900,9 +2645,9 @@ L103:
 	adc	#0
 ;                }
 ;            }
-L10095:
+L10088:
 ;            if(ctrl1&NES_RIGHT) {
-L10094:
+L10087:
 	ldy	#253
 	lda	(54),Y
 	sta	<72
@@ -2910,23 +2655,23 @@ L10094:
 	sta	<73
 	lda	<72
 	and	#1
-	bne	L104
-	jmp	L10096
-L104:
+	bne	L98
+	jmp	L10089
+L98:
 ;                if (*(unsigned char*)PLAY1POS != RIGHT_MOST) {
 	lda	4384
 	cmp	#79
-	bne	L105
-	jmp	L10097
-L105:
+	bne	L99
+	jmp	L10090
+L99:
 ;                    ++(*(unsigned char*)PLAY1POS);
 	inc	4384
 ;                }
 ;            }
-L10097:
+L10090:
 ;
 ;            if(ctrl1&NES_A) {
-L10096:
+L10089:
 	ldy	#253
 	lda	(54),Y
 	sta	<72
@@ -2934,16 +2679,16 @@ L10096:
 	sta	<73
 	lda	<72
 	and	#128
-	bne	L106
-	jmp	L10098
-L106:
+	bne	L100
+	jmp	L10091
+L100:
 ;                p1_sprite = P1_PUNCH;
 	lda	#2
 	ldy	#255
 	sta	(54),Y
 ;            } else if (ctrl1&NES_B) {
-	jmp	L10099
-L10098:
+	jmp	L10092
+L10091:
 	ldy	#253
 	lda	(54),Y
 	sta	<72
@@ -2951,23 +2696,23 @@ L10098:
 	sta	<73
 	lda	<72
 	and	#64
-	bne	L107
-	jmp	L10100
-L107:
+	bne	L101
+	jmp	L10093
+L101:
 ;                p1_sprite = P1_KICK;
 	lda	#3
 	ldy	#255
 	sta	(54),Y
 ;            }
 ;        }
-L10100:
-L10099:
 L10093:
+L10092:
+L10086:
 ;
 ;    }
 ;    else {
-	jmp	L10101
-L10091:
+	jmp	L10094
+L10084:
 ;        --(*(unsigned char*)PLAY1JP);
 	clc
 	lda	#255
@@ -2977,9 +2722,9 @@ L10091:
 	adc	#0
 ;        if (*(unsigned char*)PLAY1JP == 0x00) {
 	lda	4392
-	beq	L108
-	jmp	L10102
-L108:
+	beq	L102
+	jmp	L10095
+L102:
 ;            *(unsigned char*)PLAY1POS = *(unsigned char*)PLAY1POS + 0x40;
 	clc
 	lda	#64
@@ -2987,14 +2732,14 @@ L108:
 	sta	4384
 ;        }
 ;    }
-L10102:
-L10101:
+L10095:
+L10094:
 ;
 ;    if (*(unsigned char*)PLAY2JP == 0x00) {
 	lda	4393
-	beq	L109
-	jmp	L10103
-L109:
+	beq	L103
+	jmp	L10096
+L103:
 ;       
 ;        if (ctrl2&NES_UP) {
 	ldy	#252
@@ -3004,9 +2749,9 @@ L109:
 	sta	<73
 	lda	<72
 	and	#8
-	bne	L110
-	jmp	L10104
-L110:
+	bne	L104
+	jmp	L10097
+L104:
 ;            *(unsigned char*)PLAY2POS = *(unsigned char*)PLAY2POS - 0x40;
 	lda	4385
 	sta	<72
@@ -3021,13 +2766,13 @@ L110:
 	sta	<69
 	lda	<68
 	sta	4385
-;            *(unsigned char*)PLAY2JP = 0x05;
-	lda	#5
+;            *(unsigned char*)PLAY2JP = 0x03;
+	lda	#3
 	sta	4393
 ;        } 
 ;        else {
-	jmp	L10105
-L10104:
+	jmp	L10098
+L10097:
 ;             if(ctrl2&NES_LEFT) {
 	ldy	#252
 	lda	(54),Y
@@ -3036,15 +2781,15 @@ L10104:
 	sta	<73
 	lda	<72
 	and	#2
-	bne	L111
-	jmp	L10106
-L111:
+	bne	L105
+	jmp	L10099
+L105:
 ;                if (*(unsigned char*)PLAY2POS != LEFT_MOST) {
 	lda	4385
 	cmp	#64
-	bne	L112
-	jmp	L10107
-L112:
+	bne	L106
+	jmp	L10100
+L106:
 ;                    --(*(unsigned char*)PLAY2POS);
 	clc
 	lda	#255
@@ -3054,9 +2799,9 @@ L112:
 	adc	#0
 ;                }
 ;            }
-L10107:
+L10100:
 ;            if(ctrl2&NES_RIGHT) {
-L10106:
+L10099:
 	ldy	#252
 	lda	(54),Y
 	sta	<72
@@ -3064,22 +2809,22 @@ L10106:
 	sta	<73
 	lda	<72
 	and	#1
-	bne	L113
-	jmp	L10108
-L113:
+	bne	L107
+	jmp	L10101
+L107:
 ;                if (*(unsigned char*)PLAY2POS != RIGHT_MOST) {
 	lda	4385
 	cmp	#79
-	bne	L114
-	jmp	L10109
-L114:
+	bne	L108
+	jmp	L10102
+L108:
 ;                    ++(*(unsigned char*)PLAY2POS);
 	inc	4385
 ;                }
 ;            }
-L10109:
+L10102:
 ;            if(ctrl2&NES_A) {
-L10108:
+L10101:
 	ldy	#252
 	lda	(54),Y
 	sta	<72
@@ -3087,16 +2832,16 @@ L10108:
 	sta	<73
 	lda	<72
 	and	#128
-	bne	L115
-	jmp	L10110
-L115:
+	bne	L109
+	jmp	L10103
+L109:
 ;                p2_sprite = P2_PUNCH;
 	lda	#6
 	ldy	#254
 	sta	(54),Y
 ;            } else if (ctrl2&NES_B) {
-	jmp	L10111
-L10110:
+	jmp	L10104
+L10103:
 	ldy	#252
 	lda	(54),Y
 	sta	<72
@@ -3104,21 +2849,21 @@ L10110:
 	sta	<73
 	lda	<72
 	and	#64
-	bne	L116
-	jmp	L10112
-L116:
+	bne	L110
+	jmp	L10105
+L110:
 ;                p2_sprite = P2_KICK;
 	lda	#7
 	ldy	#254
 	sta	(54),Y
 ;            }
 ;        }
-L10112:
-L10111:
 L10105:
+L10104:
+L10098:
 ;    } else {
-	jmp	L10113
-L10103:
+	jmp	L10106
+L10096:
 ;        --(*(unsigned char*)PLAY2JP);
 	clc
 	lda	#255
@@ -3128,9 +2873,9 @@ L10103:
 	adc	#0
 ;        if (*(unsigned char*)PLAY2JP == 0x00) {
 	lda	4393
-	beq	L117
-	jmp	L10114
-L117:
+	beq	L111
+	jmp	L10107
+L111:
 ;            
 ;            *(unsigned char*)PLAY2POS = *(unsigned char*)PLAY2POS + 0x40;
 	clc
@@ -3139,8 +2884,8 @@ L117:
 	sta	4385
 ;        }
 ;    }
-L10114:
-L10113:
+L10107:
+L10106:
 ;
 ;    if ((*(unsigned char*)PLAY1POS&0x0f) >= (*(unsigned char*)PLAY2POS&0x0f)) {  //at same spot
 	lda	4384
@@ -3165,12 +2910,12 @@ L10113:
 	cmp	<64
 	lda	<69
 	sbc	<65
-	bvs	L118
+	bvs	L112
 	eor	#$80
-L118:
-	bmi	L119
-	jmp	L10115
-L119:
+L112:
+	bmi	L113
+	jmp	L10108
+L113:
 ;        if(ctrl1&NES_RIGHT) {  //if player 1 moved right move back
 	ldy	#253
 	lda	(54),Y
@@ -3179,9 +2924,9 @@ L119:
 	sta	<73
 	lda	<72
 	and	#1
-	bne	L120
-	jmp	L10116
-L120:
+	bne	L114
+	jmp	L10109
+L114:
 ;            --(*(unsigned char*)PLAY1POS);
 	clc
 	lda	#255
@@ -3191,7 +2936,7 @@ L120:
 	adc	#0
 ;        }
 ;        if(ctrl2&NES_LEFT){ //if player 2 moved left move back
-L10116:
+L10109:
 	ldy	#252
 	lda	(54),Y
 	sta	<72
@@ -3199,18 +2944,18 @@ L10116:
 	sta	<73
 	lda	<72
 	and	#2
-	bne	L121
-	jmp	L10117
-L121:
+	bne	L115
+	jmp	L10110
+L115:
 ;            ++(*(unsigned char*)PLAY2POS);
 	inc	4385
 ;        }
 ;        
 ;    }
-L10117:
+L10110:
 ;
 ;    lcd_send_instruction_async(0x80|*(unsigned char*)PLAY1POS, 0x00);
-L10115:
+L10108:
 	phx
 	phx
 	lda	4384
@@ -3258,8 +3003,8 @@ L10115:
 	jsr	_lcd_print_char_async
 ;}
 	rts
-L98	equ	0
-L99	equ	-4
+L92	equ	0
+L93	equ	-4
 	ends
 	efunc
 ;
@@ -3273,8 +3018,8 @@ _main:
 	xref	~csav
 	jsr	~csav
 	db	0
-	db	L122
-	dw	L123
+	db	L116
+	dw	L117
 ;    unsigned char last_shift;
 ;    unsigned char last_counter;
 ;    unsigned char last_hits;
@@ -3312,6 +3057,10 @@ _main:
 	stx	4392
 ;    *(unsigned char*)PLAY2JP = 0x00;
 	stx	4393
+;    *(unsigned char*)PLAY1WN = 0x00;
+	stx	4394
+;    *(unsigned char*)PLAY2WN = 0x00;
+	stx	4395
 ;    last_counter = 0;
 	txa
 	ldy	#254
@@ -3373,22 +3122,22 @@ _main:
 	lda	#40
 	sta	4388
 ;    print_string("      START     ");
-	lda	#>L65
+	lda	#>L55
 	pha
-	lda	#<L65
+	lda	#<L55
 	pha
 	jsr	_print_string
 ;
 ;    //flush all the sends
 ;    while(check_lcd_send()) {}
-L10118:
+L10111:
 	jsr	_check_lcd_send
 	lda	<56
-	bne	L124
-	jmp	L10119
-L124:
-	jmp	L10118
-L10119:
+	bne	L118
+	jmp	L10112
+L118:
+	jmp	L10111
+L10112:
 ;
 ;
 ;    //done with startup
@@ -3398,40 +3147,46 @@ L10119:
 	pha
 	jsr	_set_timer_2
 ;    while(1) {
-L10120:
+L10113:
 ;        //see if we can drain the lcd stack
 ;        check_lcd_send();
 	jsr	_check_lcd_send
 ;        if(*(unsigned char*)TIMER2){
 	lda	4379
-	bne	L125
-	jmp	L10122
-L125:
+	bne	L119
+	jmp	L10115
+L119:
 ;            if (*(unsigned char*)STAGE == GAME_START || 
+;            *(unsigned char*)STAGE == GAME_END ||
 ;            *(unsigned char*)STAGE == GAME_RD1 ||
 ;            *(unsigned char*)STAGE == GAME_RD2 ||
 ;            *(unsigned char*)STAGE == GAME_RD3 ) {
 	lda	4389
 	cmp	#1
-	bne	L127
-	jmp	L126
-L127:
+	bne	L121
+	jmp	L120
+L121:
+	lda	4389
+	cmp	#8
+	bne	L122
+	jmp	L120
+L122:
 	lda	4389
 	cmp	#2
-	bne	L128
-	jmp	L126
-L128:
+	bne	L123
+	jmp	L120
+L123:
 	lda	4389
 	cmp	#3
-	bne	L129
-	jmp	L126
-L129:
+	bne	L124
+	jmp	L120
+L124:
 	lda	4389
 	cmp	#4
-	beq	L130
-	jmp	L10123
-L130:
-L126:
+	beq	L125
+	jmp	L10116
+L125:
+L120:
 ;                --(*(unsigned char*)STAGE_CT);
 	clc
 	lda	#255
@@ -3442,15 +3197,15 @@ L126:
 ;                  // going from start of state
 ;                if (*(unsigned char*)STAGE_CT == 0x00) {
 	lda	4388
-	beq	L131
-	jmp	L10124
-L131:
+	beq	L126
+	jmp	L10117
+L126:
 ;                    if (*(unsigned char*)STAGE == GAME_START) {
 	lda	4389
 	cmp	#1
-	beq	L132
-	jmp	L10125
-L132:
+	beq	L127
+	jmp	L10118
+L127:
 ;                        *(unsigned char*)STAGE = GAME_RD1;
 	lda	#2
 	sta	4389
@@ -3459,14 +3214,41 @@ L132:
 	lda	#1
 	pha
 	jsr	_switch_to_round
+;                    } else if  (*(unsigned char*)STAGE == GAME_END) {
+	jmp	L10119
+L10118:
+	lda	4389
+	cmp	#8
+	beq	L128
+	jmp	L10120
+L128:
+;                        *(unsigned char*)STAGE = GAME_START;
+	lda	#1
+	sta	4389
+;                        lcd_send_instruction_async(0x02, 0);  //set display to home
+	phx
+	phx
+	phx
+	lda	#2
+	pha
+	jsr	_lcd_send_instruction_async
+;                        print_string("      START     ");
+	lda	#>L55+17
+	pha
+	lda	#<L55+17
+	pha
+	jsr	_print_string
+;                        *(unsigned char*)STAGE_CT = 0x28;
+	lda	#40
+	sta	4388
 ;                    } else if (*(unsigned char*)STAGE == GAME_RD1) {
-	jmp	L10126
-L10125:
+	jmp	L10121
+L10120:
 	lda	4389
 	cmp	#2
-	beq	L133
-	jmp	L10127
-L133:
+	beq	L129
+	jmp	L10122
+L129:
 ;                        *(unsigned char*)STAGE = GAME_RD1F;
 	lda	#5
 	sta	4389
@@ -3475,13 +3257,13 @@ L133:
 	ldy	#253
 	sta	(54),Y
 ;                    } else if (*(unsigned char*)STAGE == GAME_RD2) {
-	jmp	L10128
-L10127:
+	jmp	L10123
+L10122:
 	lda	4389
 	cmp	#3
-	beq	L134
-	jmp	L10129
-L134:
+	beq	L130
+	jmp	L10124
+L130:
 ;                        *(unsigned char*)STAGE = GAME_RD2F;
 	lda	#6
 	sta	4389
@@ -3490,13 +3272,13 @@ L134:
 	ldy	#253
 	sta	(54),Y
 ;                    } else if (*(unsigned char*)STAGE == GAME_RD3) {
-	jmp	L10130
-L10129:
+	jmp	L10125
+L10124:
 	lda	4389
 	cmp	#4
-	beq	L135
-	jmp	L10131
-L135:
+	beq	L131
+	jmp	L10126
+L131:
 ;                        *(unsigned char*)STAGE = GAME_RD3F;
 	lda	#7
 	sta	4389
@@ -3507,14 +3289,15 @@ L135:
 ;                    }
 ;
 ;                }
-L10131:
-L10130:
-L10128:
 L10126:
-;            } else {
-L10124:
-	jmp	L10132
+L10125:
 L10123:
+L10121:
+L10119:
+;            } else {
+L10117:
+	jmp	L10127
+L10116:
 ;                nes_changed = get_controllers();
 	jsr	_get_controllers
 	lda	<56
@@ -3523,9 +3306,9 @@ L10123:
 ;                if(check_fight_over() == 0x00) {
 	jsr	_check_fight_over
 	lda	<56
-	beq	L136
-	jmp	L10133
-L136:
+	beq	L132
+	jmp	L10128
+L132:
 ;                    //if nothing pressed and no one is jumping nothing to do
 ;                    if(nes_changed|last_hits|*(unsigned char*)PLAY1JP|*(unsigned char*)PLAY2JP) {
 	lda	4393
@@ -3566,9 +3349,9 @@ L136:
 	sta	<69
 	lda	<68
 	ora	<69
-	bne	L137
-	jmp	L10134
-L137:
+	bne	L133
+	jmp	L10129
+L133:
 ;                        draw_scene();
 	jsr	_draw_scene
 ;                        last_hits = apply_hits();
@@ -3578,10 +3361,10 @@ L137:
 	sta	(54),Y
 ;                    }
 ;                }
-L10134:
+L10129:
 ;            }
-L10133:
-L10132:
+L10128:
+L10127:
 ;            set_timer_2(0xffff);
 	lda	#255
 	pha
@@ -3592,17 +3375,18 @@ L10132:
 ;        }
 ;        
 ;    }
-L10122:
-	jmp	L10120
+L10115:
+	jmp	L10113
 ;}
-L122	equ	0
-L123	equ	-4
+L116	equ	0
+L117	equ	-4
 	ends
 	efunc
 	data
-L65:
+L55:
 	db	$20,$20,$20,$20,$20,$20,$53,$54,$41,$52,$54,$20,$20,$20,$20
-	db	$20,$00
+	db	$20,$00,$20,$20,$20,$20,$20,$20,$53,$54,$41,$52,$54,$20,$20
+	db	$20,$20,$20,$00
 	ends
 ;
 	end

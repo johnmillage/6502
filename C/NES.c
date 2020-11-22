@@ -86,6 +86,8 @@
 #define CTRL2     0x1127  //controller 2 state, 1 byte
 #define PLAY1JP   0x1128  //player 1 jumping, 1 byte
 #define PLAY2JP   0x1129  //player 2 jumping, 1 byte
+#define PLAY1WN   0x112a  //player 1 wins, 1 byte
+#define PLAY2WN   0x112b  //player 2 wins, 1 byte
 
 
 void set_timer_1(unsigned int tm) {
@@ -220,77 +222,6 @@ unsigned char check_lcd_send() {
         return 0x01;  //sent
     }
    return 0x02;  //not ready
-}
-
-void print_byte(unsigned char b) {
-    unsigned char i = b&HIGH;
-    
-    i = i>>4;
-    if (i < 0x0a) {
-        lcd_print_char_async('0' + i);
-    } else {
-        i-=0x0a;
-        lcd_print_char_async('a' + i);
-    }
-    i = b&LOW;
-     if (i < 0x0a) {
-        lcd_print_char_async('0' + i);
-    } else {
-        i-=0x0a;
-        lcd_print_char_async('a' + i);
-    }
-}
-
-void print_nes(unsigned char b) {
-    unsigned char i = 0;
-    if (b&0x80) {
-        lcd_print_char_async('A');
-    }
-    else {
-        lcd_print_char_async(' ');
-    }
-    if (b&0x40) {
-        lcd_print_char_async('B');
-    }
-    else {
-        lcd_print_char_async(' ');
-    }
-    if (b&0x20) {
-        lcd_print_char_async('s');
-    }
-    else {
-        lcd_print_char_async(' ');
-    }
-    if (b&0x10) {
-        lcd_print_char_async('S');
-    }
-    else {
-        lcd_print_char_async(' ');
-    }
-    if (b&0x08) {
-        lcd_print_char_async('U');
-    } 
-    else {
-        lcd_print_char_async(' ');
-    }
-    if (b&0x04) {
-        lcd_print_char_async('D');
-    }
-    else {
-        lcd_print_char_async(' ');
-    }
-    if (b&0x02) {
-        lcd_print_char_async('L');
-    }
-    else {
-        lcd_print_char_async(' ');
-    }
-    if (b&0x01) {
-        lcd_print_char_async('R');
-    }
-    else {
-        lcd_print_char_async(' ');
-    }
 }
 
 void print_string(const unsigned char * str)
@@ -465,6 +396,13 @@ void switch_to_round(unsigned char rd) {
 
 unsigned char check_fight_over() {
     if (*(signed char*)PLAY1LF <= 0x00 || *(signed char*)PLAY2LF <= 0x00) {
+
+        if(*(signed char*)PLAY1LF > 0x00) {
+            ++(*(signed char*)PLAY1WN);
+        }
+        else {
+            ++(*(signed char*)PLAY2WN);
+        }
         if (*(unsigned char*)STAGE == GAME_RD1F) {
             *(unsigned char*)STAGE = GAME_RD2;
             switch_to_round(0x02);
@@ -476,10 +414,18 @@ unsigned char check_fight_over() {
             return 0x01;
         }
         else {
-            *(unsigned char*)STAGE = GAME_START;
+            *(unsigned char*)STAGE = GAME_END;
             lcd_send_instruction_async(0x01, 0x00);  //clear the screen
             lcd_send_instruction_async(0x02, 0x00);  //set display to home
-            print_string("      START     ");
+            if (*(signed char*)PLAY1WN > *(signed char*)PLAY2WN) {
+                print_string("  Player 1 Wins  ");
+            }
+            else {
+                print_string("  Player 2 Wins  ");
+            }
+
+            *(signed char*)PLAY1WN = 0x00;
+            *(signed char*)PLAY2WN = 0x00;
             *(unsigned char*)STAGE_CT = 0x28;
             return 0x01;
         }
@@ -563,9 +509,36 @@ void draw_power() {
             lcd_print_char_async(0xdb);
         } else if (*(char*)PLAY1LF >= (pow - 10)){
             lcd_print_char_async(0xa1);
+        } else {
+            lcd_print_char_async(' ');
         }
     }
-    lcd_send_instruction_async(0x8b, 0x00);  //set mid through first line
+    
+    if (*(char*)PLAY1WN == 0x02) {
+        lcd_print_char_async('|');
+    } else {
+        lcd_print_char_async(' ');
+    }
+    if (*(char*)PLAY1WN >= 0x01) {
+        lcd_print_char_async('|');
+    } else {
+        lcd_print_char_async(' ');
+    }
+
+    
+   
+
+    lcd_send_instruction_async(0x89, 0x00);  //set mid through first line
+    if (*(char*)PLAY2WN >= 0x01) {
+        lcd_print_char_async('|');
+    } else {
+        lcd_print_char_async(' ');
+    }
+    if (*(char*)PLAY2WN == 0x02) {
+        lcd_print_char_async('|');
+    } else {
+        lcd_print_char_async(' ');
+    }
     pow = 100;
      for(i = 0; i < 5; ++i) {
         
@@ -592,7 +565,7 @@ void draw_scene() {
        
         if (ctrl1&NES_UP) {
             *(unsigned char*)PLAY1POS = *(unsigned char*)PLAY1POS - 0x40;
-            *(unsigned char*)PLAY1JP = 0x05;
+            *(unsigned char*)PLAY1JP = 0x03;
         } 
         else {
             if(ctrl1&NES_LEFT) {
@@ -625,7 +598,7 @@ void draw_scene() {
        
         if (ctrl2&NES_UP) {
             *(unsigned char*)PLAY2POS = *(unsigned char*)PLAY2POS - 0x40;
-            *(unsigned char*)PLAY2JP = 0x05;
+            *(unsigned char*)PLAY2JP = 0x03;
         } 
         else {
              if(ctrl2&NES_LEFT) {
@@ -690,6 +663,8 @@ void main() {
     *(unsigned char*)CTRL2 = 0x00;
     *(unsigned char*)PLAY1JP = 0x00;
     *(unsigned char*)PLAY2JP = 0x00;
+    *(unsigned char*)PLAY1WN = 0x00;
+    *(unsigned char*)PLAY2WN = 0x00;
     last_counter = 0;
     last_shift = 0x00;
     last_hits = 0x01;  //set to 1 so that you force redraw
@@ -719,6 +694,7 @@ void main() {
         check_lcd_send();
         if(*(unsigned char*)TIMER2){
             if (*(unsigned char*)STAGE == GAME_START || 
+            *(unsigned char*)STAGE == GAME_END ||
             *(unsigned char*)STAGE == GAME_RD1 ||
             *(unsigned char*)STAGE == GAME_RD2 ||
             *(unsigned char*)STAGE == GAME_RD3 ) {
@@ -728,6 +704,11 @@ void main() {
                     if (*(unsigned char*)STAGE == GAME_START) {
                         *(unsigned char*)STAGE = GAME_RD1;
                         switch_to_round(0x01);
+                    } else if  (*(unsigned char*)STAGE == GAME_END) {
+                        *(unsigned char*)STAGE = GAME_START;
+                        lcd_send_instruction_async(0x02, 0);  //set display to home
+                        print_string("      START     ");
+                        *(unsigned char*)STAGE_CT = 0x28;
                     } else if (*(unsigned char*)STAGE == GAME_RD1) {
                         *(unsigned char*)STAGE = GAME_RD1F;
                         last_hits = 0x01;
