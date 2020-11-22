@@ -1,0 +1,93 @@
+first you will need to download the the compiler from the WDC tools
+https://www.westerndesigncenter.com/wdc/tools.php
+
+The assembler, compiler, and linker documentations is very helpful so you will want to 
+get those also.
+
+To use the C compiler you will need to write a STARTUP.asm assembly file.  This is talked
+about in the documentation but it is not really spelled out and the example file they 
+mention i could not find.  They mention what it has to do so I was able to get one working.
+the basic one i have looks like this 
+
+RESET
+        ldx #$ff
+        txs
+        ldx #$ff
+        lda #$00
+        
+INIT
+        sta $00,x
+        dex
+        bne INIT
+
+        lda #$c0  ;set psuedo-stack pointer to 2fc0--default is 7fc0
+        sta $0032
+        lda #$3f
+        sta $0033
+       
+        cli   ; enable interupts
+        XREF _main
+        jmp _main
+
+NMI
+        rti
+
+IRQ
+        rti
+
+STARTUP SECTION
+        word NMI
+        word RESET
+        word IRQ
+ENDS
+
+This is zero'ing out the zero page and setting the psuedo-stack that the
+compiler uses to be located at 7fc0.
+
+The next thing I had to do was to modify a configuration file that the compiler uses.
+I don't beleive I should have had to do this but I think there is a bug in the compiler
+and i had to do this to work around it.  The file is wdc02cc.cfg in the wdc/tools/bin 
+directory.  
+
+the modifications look like this
+
+	ELSEIF	USING_134
+;COMMENTING THIS OUT AND USING THE SAME VALUES AS USING_02
+;User Register Start=0x40		; N byte user register area
+;Stack Register Start=0x50		; 8 byte stack area
+;Compiler Register Start=0x58 		; 20 byte compiler temporary register area
+;Work Register Start=0x6c		; 12 byte general purpose work area
+;Float Register Start=0x78		; 22 byte floating point area
+
+;THESE VALUES COPIED FROM THE USING_02 SECTION
+User Register Start=0x20		; N byte user register area
+Stack Register Start=0x30		; 8 byte stack area
+Compiler Register Start=0x38 		; 20 byte compiler temporary register area
+Work Register Start=0x4c		; 12 byte general purpose work area
+Float Register Start=0x58		; 22 byte floating point area
+	ENDIF
+
+essentially I couldn't get the compiler to use the USING_02 section so I forced it to
+use what I think are the right values.
+
+In your C file you just write a void main() method and the startup will call into that 
+after all of the setup is done.
+
+Now you should be good to go.  Just assemble, compile, and link
+
+--compile startup.asm
+.\WDC02AS.exe -DUSING_02 -O ..\..\Demo\ASM\STARTUP.obj ..\..\Demo\ASM\STARTUP.asm
+
+--compile c file
+./WDC02CC.exe -DUSING_02  ..\..\Demo\C\test.c
+
+--link assembly object
+.\WDCLN.exe -O ..\..\Demo\ASM\test.bin -C8000,0000 -Astartup=,7ffa -HB ..\..\Demo\ASM\test.obj -LC
+
+Then you can just flash the test.bin file onto your rom.
+
+One thing I have found is that division doesn't seem to work.  I have used some methods
+from the standard library they provide and they have worked but division generates a call to a div() method
+that garbles everything up so I just don't do any division anywhere.
+
+
