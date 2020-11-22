@@ -2,7 +2,7 @@
 .\WDC02AS.exe -O ..\..\Demo\ASM\interupts.obj ..\..\Demo\ASM\interupts.asm
 
 --link assembly object
-.\WDCLN.exe -O ..\..\Demo\ASM\interupts.bin -C8000,0000 -Astartup=,7ffa -HB ..\..\Demo\ASM\interupts.obj
+.\WDCLN.exe -O ..\..\Demo\ASM\interupts.bin -C8000,0000 -Astartup=,7ffa -HB ..\..\Demo\ASM\interupts.obj -LC
 
 --compile startup.asm
 .\WDC02AS.exe -DUSING_02 -O ..\..\Demo\ASM\STARTUP.obj ..\..\Demo\ASM\STARTUP.asm
